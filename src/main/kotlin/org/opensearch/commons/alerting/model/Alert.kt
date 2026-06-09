@@ -329,7 +329,22 @@ data class Alert(
         aggregationResultBucket = if (sin.readBoolean()) AggregationResultBucket(sin) else null,
         executionId = sin.readOptionalString(),
         associatedAlertIds = sin.readStringList(),
-        clusters = sin.readOptionalStringList()
+        clusters = sin.readOptionalStringList(),
+        query = if (sin.version.onOrAfter(Version.V_3_7_0)) {
+            sin.readOptionalString()
+        } else {
+            null
+        },
+        queryResults = if (sin.version.onOrAfter(Version.V_3_7_0)) {
+            sin.readList { input -> input.readMap()?.toMutableMap() ?: mutableMapOf() }
+        } else {
+            listOf()
+        },
+        target = if (sin.version.onOrAfter(Version.V_3_6_0)) {
+            if (sin.readBoolean()) Target(sin) else null
+        } else {
+            null
+        }
     )
 
     fun isAcknowledged(): Boolean = (state == State.ACKNOWLEDGED)
