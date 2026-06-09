@@ -423,7 +423,7 @@ data class Alert(
             null
         },
         queryResults = if (sin.version.onOrAfter(Version.V_3_7_0)) {
-            sin.readList { input -> suppressWarning(input.readMap()) }
+            sin.readList { input -> input.readMap()?.toMutableMap() ?: mutableMapOf() }
         } else {
             listOf()
         },
