@@ -6,6 +6,7 @@
 package org.opensearch.commons.alerting.model
 
 import org.opensearch.commons.alerting.alerts.AlertError
+import org.opensearch.commons.alerting.util.readMapAsMutableMap
 import org.opensearch.core.common.io.stream.StreamInput
 import org.opensearch.core.common.io.stream.StreamOutput
 import org.opensearch.core.xcontent.ToXContent
@@ -27,7 +28,12 @@ open class QueryLevelTriggerRunResult(
         triggerName = sin.readString(),
         error = sin.readException(),
         triggered = sin.readBoolean(),
-        actionResults = sin.readMap() as MutableMap<String, ActionRunResult>
+        actionResults = sin.readMapAsMutableMap() as MutableMap<String, ActionRunResult>,
+        pplCustomQueryResults = if (sin.version.onOrAfter(Version.V_3_7_0)) {
+            sin.readList { it.readMap() }
+        } else {
+            listOf()
+        }
     )
 
     override fun alertError(): AlertError? {
