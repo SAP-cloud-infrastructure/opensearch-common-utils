@@ -9,6 +9,7 @@ import org.apache.logging.log4j.LogManager
 import org.opensearch.OpenSearchException
 import org.opensearch.commons.alerting.alerts.AlertError
 import org.opensearch.commons.alerting.util.optionalTimeField
+import org.opensearch.commons.alerting.util.readMapAsMutableMap
 import org.opensearch.core.common.io.stream.StreamInput
 import org.opensearch.core.common.io.stream.StreamOutput
 import org.opensearch.core.common.io.stream.Writeable
@@ -35,7 +36,7 @@ data class MonitorRunResult<TriggerResult : TriggerRunResult>(
         sin.readInstant(), // periodEnd
         sin.readException(), // error
         InputRunResults.readFrom(sin), // inputResults
-        suppressWarning(sin.readMap()) as Map<String, TriggerResult> // triggerResults
+        sin.readMapAsMutableMap() as Map<String, TriggerResult> // triggerResults
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -70,11 +71,6 @@ data class MonitorRunResult<TriggerResult : TriggerRunResult>(
         @Throws(IOException::class)
         fun readFrom(sin: StreamInput): MonitorRunResult<TriggerRunResult> {
             return MonitorRunResult(sin)
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        fun suppressWarning(map: MutableMap<String?, Any?>?): Map<String, TriggerRunResult> {
-            return map as Map<String, TriggerRunResult>
         }
     }
 
@@ -118,15 +114,26 @@ data class InputRunResults(
             val count = sin.readVInt() // count
             val list = mutableListOf<Map<String, Any>>()
             for (i in 0 until count) {
-                list.add(suppressWarning(sin.readMap())) // result(map)
+                list.add(sin.readMapAsMutableMap()) // result(map)
+            }
+            val pplCount = if (sin.version.onOrAfter(Version.V_3_7_0)) {
+                sin.readVInt()
+            } else {
+                0
+            }
+            val pplList = mutableListOf<Map<String, Any?>>()
+            if (sin.version.onOrAfter(Version.V_3_7_0)) {
+                for (i in 0 until pplCount) {
+                    pplList.add(sin.readMapAsMutableMap()) // pplResults
+                }
+            }
+            val pplNumResults = if (sin.version.onOrAfter(Version.V_3_7_0)) {
+                sin.readOptionalLong()
+            } else {
+                null
             }
             val error = sin.readException<Exception>() // error
             return InputRunResults(list, error)
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        fun suppressWarning(map: MutableMap<String?, Any?>?): Map<String, Any> {
-            return map as Map<String, Any>
         }
     }
 
