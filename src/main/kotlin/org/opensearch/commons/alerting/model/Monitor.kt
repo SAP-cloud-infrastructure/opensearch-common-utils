@@ -1,5 +1,6 @@
 package org.opensearch.commons.alerting.model
 
+import org.opensearch.commons.alerting.util.readMapAsMutableMap
 import org.opensearch.Version
 import org.opensearch.common.CheckedFunction
 import org.opensearch.commons.alerting.model.remote.monitors.RemoteMonitorTrigger
@@ -131,7 +132,7 @@ data class Monitor(
         schemaVersion = sin.readInt(),
         inputs = sin.readList((Input)::readFrom),
         triggers = sin.readList((Trigger)::readFrom),
-        uiMetadata = suppressWarning(sin.readMap()),
+        uiMetadata = sin.readMapAsMutableMap(),
         dataSources = if (sin.readBoolean()) {
             DataSources(sin)
         } else {
@@ -350,7 +351,7 @@ data class Monitor(
             var schedule: Schedule? = null
             var lastUpdateTime: Instant? = null
             var enabledTime: Instant? = null
-            var uiMetadata: Map<String, Any> = mapOf()
+            var uiMetadata: Map<String, Any> = mutableMapOf()
             var enabled = true
             var schemaVersion = NO_SCHEMA_VERSION
             val triggers: MutableList<Trigger> = mutableListOf()
@@ -407,7 +408,7 @@ data class Monitor(
                     }
                     ENABLED_TIME_FIELD -> enabledTime = xcp.instant()
                     LAST_UPDATE_TIME_FIELD -> lastUpdateTime = xcp.instant()
-                    UI_METADATA_FIELD -> uiMetadata = xcp.map()
+                    UI_METADATA_FIELD -> uiMetadata = xcp.map().toMutableMap()
                     DATA_SOURCES_FIELD -> dataSources = if (xcp.currentToken() == XContentParser.Token.VALUE_NULL) {
                         DataSources()
                     } else {
@@ -481,9 +482,5 @@ data class Monitor(
             return Monitor(sin)
         }
 
-        @Suppress("UNCHECKED_CAST")
-        fun suppressWarning(map: MutableMap<String?, Any?>?): MutableMap<String, Any> {
-            return map as MutableMap<String, Any>
-        }
     }
 }
