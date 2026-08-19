@@ -1,5 +1,6 @@
 package org.opensearch.commons.alerting.model
 
+import org.opensearch.commons.alerting.util.readMapAsMutableMap
 import org.opensearch.Version
 import org.opensearch.common.CheckedFunction
 import org.opensearch.commons.alerting.model.remote.monitors.RemoteMonitorTrigger
@@ -131,7 +132,7 @@ data class Monitor(
         schemaVersion = sin.readInt(),
         inputs = sin.readList((Input)::readFrom),
         triggers = sin.readList((Trigger)::readFrom),
-        uiMetadata = suppressWarning(sin.readMap()),
+        uiMetadata = sin.readMapAsMutableMap(),
         dataSources = if (sin.readBoolean()) {
             DataSources(sin)
         } else {
@@ -481,9 +482,5 @@ data class Monitor(
             return Monitor(sin)
         }
 
-        @Suppress("UNCHECKED_CAST")
-        fun suppressWarning(map: MutableMap<String?, Any?>?): MutableMap<String, Any> {
-            return map as MutableMap<String, Any>
-        }
     }
 }

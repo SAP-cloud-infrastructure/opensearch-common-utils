@@ -1,5 +1,6 @@
 package org.opensearch.commons.alerting.model
 
+import org.opensearch.commons.alerting.util.readMapAsMutableMap
 import org.opensearch.common.CheckedFunction
 import org.opensearch.commons.alerting.util.IndexUtils.Companion.NO_SCHEMA_VERSION
 import org.opensearch.commons.alerting.util.IndexUtils.Companion.WORKFLOW_MAX_INPUTS
@@ -294,10 +295,6 @@ data class Workflow(
             return Workflow(sin)
         }
 
-        @Suppress("UNCHECKED_CAST")
-        fun suppressWarning(map: MutableMap<String?, Any?>?): MutableMap<String, Any> {
-            return map as MutableMap<String, Any>
-        }
 
         private const val DEFAULT_OWNER = "alerting"
     }

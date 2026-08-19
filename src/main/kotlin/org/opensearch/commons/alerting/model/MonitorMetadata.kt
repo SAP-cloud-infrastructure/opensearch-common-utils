@@ -5,6 +5,7 @@
 
 package org.opensearch.commons.alerting.model
 
+import org.opensearch.commons.alerting.util.readMapAsMutableMap
 import org.opensearch.commons.alerting.model.Monitor.Companion.NO_ID
 import org.opensearch.commons.alerting.util.instant
 import org.opensearch.core.common.io.stream.StreamInput
@@ -36,8 +37,8 @@ data class MonitorMetadata(
         primaryTerm = sin.readLong(),
         monitorId = sin.readString(),
         lastActionExecutionTimes = sin.readList(ActionExecutionTime.Companion::readFrom),
-        lastRunContext = Monitor.suppressWarning(sin.readMap()),
-        sourceToQueryIndexMapping = sin.readMap() as MutableMap<String, String>
+        lastRunContext = sin.readMapAsMutableMap(),
+        sourceToQueryIndexMapping = sin.readMapAsMutableMap() as MutableMap<String, String>
     )
 
     override fun writeTo(out: StreamOutput) {
@@ -47,7 +48,7 @@ data class MonitorMetadata(
         out.writeString(monitorId)
         out.writeCollection(lastActionExecutionTimes)
         out.writeMap(lastRunContext)
-        out.writeMap(sourceToQueryIndexMapping as MutableMap<String, Any>)
+        out.writeMap(sourceToQueryIndexMapping as Map<String, Any>)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -57,7 +58,7 @@ data class MonitorMetadata(
             .field(LAST_ACTION_EXECUTION_FIELD, lastActionExecutionTimes.toTypedArray())
         if (lastRunContext.isNotEmpty()) builder.field(LAST_RUN_CONTEXT_FIELD, lastRunContext)
         if (sourceToQueryIndexMapping.isNotEmpty()) {
-            builder.field(SOURCE_TO_QUERY_INDEX_MAP_FIELD, sourceToQueryIndexMapping as MutableMap<String, Any>)
+            builder.field(SOURCE_TO_QUERY_INDEX_MAP_FIELD, sourceToQueryIndexMapping as Map<String, Any>)
         }
         if (params.paramAsBoolean("with_type", false)) builder.endObject()
         return builder.endObject()
@@ -98,7 +99,7 @@ data class MonitorMetadata(
                         }
                     }
                     LAST_RUN_CONTEXT_FIELD -> lastRunContext = xcp.map()
-                    SOURCE_TO_QUERY_INDEX_MAP_FIELD -> sourceToQueryIndexMapping = xcp.map() as MutableMap<String, String>
+                    SOURCE_TO_QUERY_INDEX_MAP_FIELD -> sourceToQueryIndexMapping = (xcp.map()?.toMutableMap() ?: mutableMapOf()) as MutableMap<String, String>
                 }
             }
 
