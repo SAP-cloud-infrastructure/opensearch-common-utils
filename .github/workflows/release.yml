@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build and release from'
+        required: true
+        type: string
+      version:
+        description: 'OpenSearch version (e.g. 3.7)'
+        required: true
+        type: string
+  release:
+    types: [published]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Resolve parameters
+        id: params
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            # Release published event: tag is provided directly by the event.
+            # Expected tag format: {major}.{minor}.0.0-sci-v{N}
+            TAG="${{ github.event.release.tag_name }}"
+            # Skip if the release already has assets attached (avoid double-build)
+            ASSET_COUNT=$(gh release view "${TAG}" \
+              --repo "${{ github.repository }}" \
+              --json assets --jq '.assets | length')
+            if [ "${ASSET_COUNT}" -gt 0 ]; then
+              echo "Release ${TAG} already has ${ASSET_COUNT} asset(s) attached — skipping build." >&2
+              exit 0
+            fi
+            # Strip the -sci-v{N} suffix to get the base version
+            BASE="${TAG%-sci-v*}"
+            # Extract major.minor from {major}.{minor}.0.0
+            VERSION=$(echo "$BASE" | cut -d. -f1,2)
+            # Use the release target commitish as the branch
+            BRANCH="${{ github.event.release.target_commitish }}"
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "qualifier=${TAG##*-}" >> "$GITHUB_OUTPUT"
+            echo "opensearch_version=${VERSION}.0" >> "$GITHUB_OUTPUT"
+            echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+            echo "create_release=false" >> "$GITHUB_OUTPUT"
+          else
+            # Manual dispatch: compute next sci-vN tag as before
+            VERSION="${{ inputs.version }}"
+            BASE_TAG="${VERSION}.0.0"
+            EXISTING=$(gh release list --limit 100 --repo "${{ github.repository }}" \
+              --json tagName --jq '.[].tagName' \
+              | grep -E "^${BASE_TAG}-sci-v[0-9]+$" || true)
+            if [ -z "$EXISTING" ]; then
+              NEXT_N=1
+            else
+              MAX_N=$(echo "$EXISTING" | sed "s/^${BASE_TAG}-sci-v//" | sort -n | tail -1)
+              NEXT_N=$((MAX_N + 1))
+            fi
+            QUALIFIER="sci-v${NEXT_N}"
+            TAG="${BASE_TAG}-${QUALIFIER}"
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "qualifier=${QUALIFIER}" >> "$GITHUB_OUTPUT"
+            echo "opensearch_version=${VERSION}.0" >> "$GITHUB_OUTPUT"
+            echo "branch=${{ inputs.branch }}" >> "$GITHUB_OUTPUT"
+            echo "create_release=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.params.outputs.branch }}
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build plugin zip
+        run: ./gradlew build -x test -Dbuild.version_qualifier=${{ steps.params.outputs.qualifier }}
+
+      - name: Locate artifact
+        id: artifact
+        run: |
+          ARTIFACT=$(find build/libs -name "common-utils-*.jar" \
+            ! -name "*-sources.jar" \
+            ! -name "*-javadoc.jar" \
+            ! -name "*-SNAPSHOT*.jar" \
+            | head -1)
+          echo "path=${ARTIFACT}" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename ${ARTIFACT})" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release and upload artifact
+        if: steps.params.outputs.create_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.params.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --target "${{ steps.params.outputs.branch }}" \
+            --title "${{ steps.params.outputs.tag }}" \
+            --notes "Release ${{ steps.params.outputs.tag }} built from branch \`${{ steps.params.outputs.branch }}\`." \
+            "${{ steps.artifact.outputs.path }}#${{ steps.artifact.outputs.name }}"
+
+      - name: Upload artifact to existing release
+        if: steps.params.outputs.create_release == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ steps.params.outputs.tag }}" \
+            "${{ steps.artifact.outputs.path }}#${{ steps.artifact.outputs.name }}" \
+            --repo "${{ github.repository }}" \
+            --clobber
