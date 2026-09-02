@@ -78,13 +78,13 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
 
       - name: Build plugin zip
-        run: ./gradlew build -x test -Dbuild.version_qualifier=${{ steps.params.outputs.qualifier }}
+        run: ./gradlew build -x test -Dbuild.snapshot=false -Dbuild.version_qualifier=${{ steps.params.outputs.qualifier }}
 
       - name: Locate artifact
         id: artifact
@@ -92,13 +92,18 @@ jobs:
           ARTIFACT=$(find build/libs -name "common-utils-*.jar" \
             ! -name "*-sources.jar" \
             ! -name "*-javadoc.jar" \
+            ! -name "*-plain.jar" \
             ! -name "*-SNAPSHOT*.jar" \
             | head -1)
+          if [ -z "${ARTIFACT}" ]; then
+            echo "::error::No artifact jar found in build/libs" >&2
+            exit 1
+          fi
           echo "path=${ARTIFACT}" >> "$GITHUB_OUTPUT"
-          echo "name=$(basename ${ARTIFACT})" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "${ARTIFACT}")" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release and upload artifact
-        if: steps.params.outputs.create_release == 'true'
+        if: steps.params.outputs.create_release == 'true' && steps.artifact.conclusion == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -110,7 +115,7 @@ jobs:
             "${{ steps.artifact.outputs.path }}#${{ steps.artifact.outputs.name }}"
 
       - name: Upload artifact to existing release
-        if: steps.params.outputs.create_release == 'false'
+        if: steps.params.outputs.create_release == 'false' && steps.artifact.conclusion == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
