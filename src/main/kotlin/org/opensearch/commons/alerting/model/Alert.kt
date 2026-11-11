@@ -755,7 +755,7 @@ data class Alert(
             // Converting bucket keys to comma separated String to avoid manipulation in Action mustache templates
             BUCKET_KEYS to aggregationResultBucket?.bucketKeys?.joinToString(","),
             PARENTS_BUCKET_PATH to aggregationResultBucket?.parentBucketPath,
-            DOC_COUNT to (aggregationResultBucket?.bucket?.get("doc_count") as? Long),
+            DOC_COUNT to (aggregationResultBucket?.bucket?.get("doc_count") as? Number)?.toLong(),
             FINDING_IDS to findingIds.joinToString(","),
             RELATED_DOC_IDS to relatedDocIds.joinToString(","),
             CLUSTERS_FIELD to clusters?.joinToString(","),
