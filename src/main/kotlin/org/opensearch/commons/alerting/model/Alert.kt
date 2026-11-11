@@ -510,6 +510,7 @@ data class Alert(
         const val ASSOCIATED_ALERT_IDS_FIELD = "associated_alert_ids"
         const val BUCKET_KEYS = AggregationResultBucket.BUCKET_KEYS
         const val PARENTS_BUCKET_PATH = AggregationResultBucket.PARENTS_BUCKET_PATH
+        const val DOC_COUNT = "doc_count"
         const val CLUSTERS_FIELD = "clusters"
         const val QUERY_FIELD = "query"
         const val QUERY_RESULTS_FIELD = "query_results"
@@ -754,6 +755,7 @@ data class Alert(
             // Converting bucket keys to comma separated String to avoid manipulation in Action mustache templates
             BUCKET_KEYS to aggregationResultBucket?.bucketKeys?.joinToString(","),
             PARENTS_BUCKET_PATH to aggregationResultBucket?.parentBucketPath,
+            DOC_COUNT to (aggregationResultBucket?.bucket?.get("doc_count") as? Long),
             FINDING_IDS to findingIds.joinToString(","),
             RELATED_DOC_IDS to relatedDocIds.joinToString(","),
             CLUSTERS_FIELD to clusters?.joinToString(","),
