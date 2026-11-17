@@ -2,9 +2,12 @@ package org.opensearch.commons.alerting.action
 
 import org.opensearch.action.ActionRequest
 import org.opensearch.action.ActionRequestValidationException
+import org.opensearch.action.DocRequest
 import org.opensearch.action.support.WriteRequest
 import org.opensearch.commons.alerting.model.DocLevelMonitorInput
 import org.opensearch.commons.alerting.model.Monitor
+import org.opensearch.commons.alerting.model.ScheduledJob
+import org.opensearch.commons.alerting.util.AlertingConstants
 import org.opensearch.commons.alerting.util.IndexPatternUtils
 import org.opensearch.core.common.io.stream.StreamInput
 import org.opensearch.core.common.io.stream.StreamOutput
@@ -12,7 +15,7 @@ import org.opensearch.rest.RestRequest
 import java.io.IOException
 import java.util.Locale
 
-class IndexMonitorRequest : ActionRequest {
+class IndexMonitorRequest : ActionRequest, DocRequest {
     val monitorId: String
     val seqNo: Long
     val primaryTerm: Long
@@ -81,5 +84,17 @@ class IndexMonitorRequest : ActionRequest {
         out.writeEnum(method)
         monitor.writeTo(out)
         out.writeOptionalStringCollection(rbacRoles)
+    }
+
+    override fun index(): String? {
+        return ScheduledJob.SCHEDULED_JOBS_INDEX
+    }
+
+    override fun id(): String? {
+        return monitor.id
+    }
+
+    override fun type(): String {
+        return AlertingConstants.MONITOR_RESOURCE_TYPE
     }
 }
